@@ -1,4 +1,3 @@
-// IMPORTS
 const mongoose = require("mongoose");
 const app = require("./app");
 const User = require("./src/Models/UsuariosModel");
