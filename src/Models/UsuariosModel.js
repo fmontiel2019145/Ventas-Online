@@ -11,9 +11,9 @@ var userSchema = Schema({
     rolUsuario: { type: String, default: "CLIENT" },
     comprasUsuario: [
         {
-            factura: { type: Schema.Types.ObjectId, ref: "bill" },
-            productos: [],
-            total: Number,
+            facturaCompra: { type: Schema.Types.ObjectId, ref: "Facturas" },
+            productosCompra: [],
+            totalCompra: Number,
         },
     ],
 });

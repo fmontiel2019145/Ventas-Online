@@ -4,16 +4,16 @@ var mongoose = require("mongoose");
 var Schema = mongoose.Schema;
 
 var cartSchema = Schema({
-    user: { type: Schema.Types.ObjectId, ref: "users" },
-    products: [
+    usuarioCarrito: { type: Schema.Types.ObjectId, ref: "usuarios" },
+    productosCarrito: [
         {
-            product: { type: Schema.Types.ObjectId, ref: "products" },
-            name: String,
-            price: Number,
-            quantity: Number,
+            idProducto: { type: Schema.Types.ObjectId, ref: "productos" },
+            nombreProducto: String,
+            precioProducto: Number,
+            cantidadProducto: Number,
         },
     ],
-    total: { type: Number, default: 0 },
+    totalCarrito: { type: Number, default: 0 },
 });
 
 module.exports = mongoose.model("Carritos", cartSchema);

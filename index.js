@@ -45,13 +45,13 @@ function defaultUser(req, res) {
 
 function defaultCategory(req, res) {
     Category.findOne({
-        name: "Default",
+        nombreCategoria: "Default",
     }).exec((err, categoryFind) => {
         if (categoryFind) {
             console.log("Categoria por defecto ya creada");
         } else {
             var categoryModel = new Category({
-                name: "Default",
+                nombreCategoria: "Default",
             });
             categoryModel.save();
             console.log("Categoria por defecto creada con exito");

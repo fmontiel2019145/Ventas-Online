@@ -6,6 +6,6 @@ var md_autentication = require("../Middlewares/authentication");
 
 var app = express.Router();
 
-app.post("/agregarAlCarrito", md_autentication.ensureAuthClient, cartController.addProductToCart);
+app.post("/agregarAlCarrito", md_autentication.ensureAuth, cartController.agregarAlCarrito);
 
 module.exports = app;

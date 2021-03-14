@@ -6,17 +6,14 @@ var md_autentication = require("../Middlewares/authentication");
 
 var app = express.Router();
 
-app.post("/guardarProducto", md_autentication.ensureAuthAdmin, productController.saveProduct);
-app.get("/listarProductos", md_autentication.ensureAuthAdmin, productController.listProducts);
-app.get("/listarProductosPorNombre", md_autentication.ensureAuthAdmin, productController.listProductsByName);
-/*
-app.get("/listProduct", productController.listProduct);
-*/
-app.put("/editarProducto/:idProduct", md_autentication.ensureAuthAdmin, productController.editProduct);
-app.get("/verExistencia", md_autentication.ensureAuthAdmin, productController.viewStocks);
-app.delete("/eliminarProducto/:idProduct", md_autentication.ensureAuthAdmin, productController.deleteProduct);
-app.get("/buscarPorCategoria", productController.viewProductsForCategorys);
-app.get("/verProductosAgotados", md_autentication.ensureAuthAdmin, productController.viewDownProducts);
-app.get("/verProductosMasVendidos", md_autentication.ensureAuthAdmin, productController.viewProductsMostSelled);
+app.post("/guardarProducto", md_autentication.ensureAuth, productController.guardarProducto);
+app.get("/listarProductos", md_autentication.ensureAuth, productController.listarProductos);
+app.get("/listarProductosPorNombre", md_autentication.ensureAuth, productController.listarProductosPorNombre);
+app.put("/editarProducto/:id", md_autentication.ensureAuth, productController.editarProducto);
+app.get("/verExistencia", md_autentication.ensureAuth, productController.verExistencia);
+app.delete("/eliminarProducto/:id", md_autentication.ensureAuth, productController.borrarProducto);
+app.get("/buscarPorCategoria", productController.verProductosPorCategoria);
+app.get("/verProductosAgotados", md_autentication.ensureAuth, productController.verProductosAgotados);
+app.get("/verProductosMasVendidos", md_autentication.ensureAuth, productController.verProductosMasVendidos);
 
 module.exports = app;

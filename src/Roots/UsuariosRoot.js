@@ -2,7 +2,7 @@
 
 //Imports
 var express = require("express");
-var userController = require("../Controllers/UsuariosController");
+var ControladorUsuarios = require("../Controllers/UsuariosController");
 
 //Importation of Middlewares
 
@@ -10,13 +10,11 @@ var md_authentication = require("../Middlewares/authentication");
 
 //Routes
 var api = express.Router();
-api.post("/registrarUsuario", userController.saveUser);
-api.post("/login", userController.login);
-api.put("/ascenderCliente", md_authentication.ensureAuthAdmin, userController.ascenderClient);
-api.put("/editarUsuario/:idCliente", md_authentication.ensureAuthAdmin, userController.editarUsuario);
-api.put("/editarMiCuenta/:idCliente", md_authentication.ensureAuthClient, userController.editarMiCuenta);
-api.delete("/eliminarUsuario/:idCliente", md_authentication.ensureAuthAdmin, userController.eliminarUsuario);
-api.delete("/eliminarMiCuenta/:idCliente", md_authentication.ensureAuthClient, userController.eliminarMiCuenta);
+api.post("/registrarUsuario", ControladorUsuarios.guardarUsuario);
+api.post("/login", ControladorUsuarios.login);
+api.put("/ascenderCliente", md_authentication.ensureAuth, ControladorUsuarios.ascenderUsuario);
+api.put("/editarUsuario/:idUsuario", md_authentication.ensureAuth, ControladorUsuarios.actualizarUsuario);
+api.delete("/eliminarUsuario/:idUsuario", md_authentication.ensureAuth, ControladorUsuarios.borrarUsuario);
 
 //Exports
 module.exports = api;

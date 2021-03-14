@@ -4,24 +4,17 @@ const mongoose = require("mongoose");
 var Schemma = mongoose.Schema;
 
 var billSchema = Schemma({
-    date: Date,
-    total: Number,
-    user: [
+    fechaFactura: Date,
+    totalFactura: Number,
+    usuarioFactura: {type: Schemma.Types.ObjectId, ref: "usuarios", required: true,},
+    productosFactura: [
         {
-            type: Schemma.Types.ObjectId,
-            ref: "user",
-            required: true,
-        },
-    ],
-    products: [
-        {
-            product: Schemma.Types.ObjectId,
-            name: String,
-            quantity: Number,
-            price: Number,
-            subtotal: Number,
-        },
-    ],
+            idProducto: Schemma.Types.ObjectId,
+            nombreProducto: String,
+            cantidadProducto: Number,
+            precioProducto: Number
+        }
+    ]
 });
 
-module.exports = mongoose.model("Facturas", billSchema);
+module.exports = mongoose.model("facturas", billSchema);

@@ -1,184 +1,218 @@
 "use strict";
 
-const { modelName } = require("../Models/ProductosModel");
-var Product = require("../Models/ProductosModel");
-var Category = require("../Models/CategoriasModel");
-const { response } = require("../Roots/FacturasRoot");
+const ModeloProductos = require("../Models/ProductosModel");
+const ModeloCategorias = require("../Models/CategoriasModel");;
 
-function saveProduct(req, res) {
-    var params = req.body;
-    var productsModel = new Product();
-    var userClient = req.userAdmin.user;
+function guardarProducto(req, res){
+    var dataSesion = req.usuario;
 
-    if (req.userAdmin.rol == "ADMIN") {
-        if (params.name && params.price && params.amount && params.category && params.amount && params.mark) {
-            productsModel.name = params.name;
-            productsModel.price = params.price;
-            productsModel.amount = params.amount;
-            productsModel.category = params.category;
-            productsModel.mark = params.mark;
+    var nombre = req.body.nombreProducto;
+    var precio = req.body.precioProducto;
+    var stock = req.body.cantidadProducto;
+    var marca = req.body.marcaProducto;
+    var categoria = req.body.categoriaProducto;
 
-            Category.findById(params.category, (err, categoryFound) => {
-                if (err) return res.status(200).send({ message: "Error en el id de la categoria " });
-
-                if (categoryFound) {
-                    Product.find({ name: productsModel.name }).exec((err, productFound) => {
-                        if (err) return res.status(200).send({ message: "Error en la peticion" });
-
-                        if (productFound && productFound.length >= 1) {
-                            return res.status(200).send({ message: "El producto ya existe" });
-                        } else {
-                            productsModel.save((err, productSaved) => {
-                                if (err) return res.status(200).send({ message: "Error en la peticion guardar" });
-
-                                if (!productSaved) {
-                                    return res.status(200).send({ message: "No se pudo guardar el pructo" });
-                                } else {
-                                    res.status(200).send({ productSaved });
-                                    console.log("Se creo un producto");
-                                }
-                            });
+    var productoModel = new ModeloProductos({
+        nombreProducto : nombre,
+        precioProducto : precio,
+        stockProducto : stock,
+        marcaProducto : marca,
+        categoriaProducto : categoria
+    });
+    if(dataSesion.rolUsuario == "ADMIN"){
+        ModeloCategorias.find({_id : categoria}).exec((err, categoria) => {
+            if(err){
+                res.status(500).send({mensaje : "Categoria para integrar al producto no existe", err});
+            }else{
+                if(categoria && categoria.length > 0){
+                    ModeloProductos.findOne({nombreProducto : nombre}).exec((err, producto) => {
+                        if(err){
+                            res.status(500).send({mensaje : "Error en la consulta al verificar Producto", err});
+                        }else{
+                            if(producto){
+                                res.status(200).send("Ese producto ya existe");
+                            }else{
+                                productoModel.save((err, productoGuardado) => {
+                                    if(err){
+                                        res.status(500).send({mensaje : "Error en la consulta al verificar Producto", err});
+                                    }else{
+                                        res.status(200).send(productoGuardado);
+                                    }
+                                });
+                            }
                         }
                     });
-                } else {
-                    return res.status(200).send({ message: "No se econtro la cetegoria" });
+                }else{
+                    res.status(200).send("No existe la categoria");
                 }
-            });
-        } else {
-            return res.status(200).send({ message: "Ingrese todos los parametros" });
-        }
-    } else {
-        return res.status(200).send({ message: `${userClient} Usted no es administrador ` });
+            }
+        });
+    }else{
+        res.status(200).send("No eres administrador");
     }
 }
 
-function listProducts(req, res) {
-    Product.find({}, (err, products) => {
-        Product.populate(products, { path: "category" }, (err, products) => {
-            res.status(200).send({ products });
+function listarProductos(req, res) {
+    ModeloProductos.find({}, (err, productos) => {
+        ModeloProductos.populate(productos, { path: "categoriaProducto" }, (err, productos) => {
+            if(err){
+                res.status(200).send({mensaje : "Algo falló ", err});
+            }else{
+                if(productos && productos.length > 0){
+                    res.status(200).send({ productos });
+                }else{
+                    res.status(404).send("No se encontraron productos");
+                }
+            }
         });
     });
 }
 
-function listProductsByName(req, res) {
-    var params = req.body;
+function listarProductosPorNombre(req, res) {
+    var nombre = req.body.nombreProducto;
 
-    Product.findOne({ name: params.name }).exec((err, productFind) => {
-        if (err) return res.status(200).send({ message: "Error en el servidor" });
+    ModeloProductos.find({nombreProducto : nombre}, (err, productos) => {
+        ModeloProductos.populate(productos, { path: "categoriaProducto" }, (err, productos) => {
+            if(err){
+                res.status(200).send({mensaje : "Algo falló ", err});
+            }else{
+                if(productos && productos.length > 0){
+                    res.status(200).send({ productos });
+                }else{
+                    res.status(404).send("No se encontraron productos");
+                }
+            }
+        });
+    });
+}
 
-        if (productFind) {
-            return res.status(200).send({ productFind });
+function editarProducto(req, res){
+    var dataSesion = req.usuario;
+    var idProducto = req.params.id;
+    var newData = req.body;
+
+    if (dataSesion.rolUsuario == "ADMIN") {
+        ModeloProductos.findOneAndUpdate({_id : idProducto}, newData, {new: true}, (err, productoActualizado) => {
+            if(err){
+                res.status(500).send("Erro al actualizar el producto");
+            }else{
+                if(productoActualizado){
+                    res.status(200).send(productoActualizado);
+                }else{
+                    res.status(404).send("No existe ese producto");
+                }
+            }
+        });
+    } else {
+        res.status(200).send({message: "No eres administrador"});
+    }
+}
+
+function verExistencia(req, res) {
+    var nombre = req.body.nombreProducto;
+
+    ModeloProductos.findOne({nombreProducto : nombre}).exec((err, producto) => {
+        if(err){
+            res.status(500).send("Error al buscar producto");
         }else{
-            return res.status(200).send("No hay productos con ese nombre");
+            if(producto){
+                res.status(200).send(producto);
+            }else{
+                res.status(404).send("Producto no encontrado");
+            }
         }
     });
 }
 
-function editProduct(req, res) {
-    var ProductId = req.params.idProduct;
-    var params = req.body;
+function borrarProducto(req, res) {
+    var id = req.params.id;
 
-    if (req.userAdmin.rol == "ADMIN") {
-        Product.findByIdAndUpdate(ProductId, params, { new: true }, (err, productUpdate) => {
-            if (productUpdate) {
-                return res.status(200).send({ productUpdate });
-            } else {
-                return res.status(200).send({ message: "No se pudo editar el producto" });
-            }
-        });
-    } else {
-        return res.status(200).send({
-            message: "Usted no es administrador no puede editar este producto",
-        });
-    }
-}
+    var dataSesion = req.usuario;
 
-function viewStocks(req, res) {
-    var params = req.body;
-
-    Product.findOne({ name: params.name }).exec((err, productFind) => {
-        if (err) return res.status(200).send({ message: "Error en el servidor" });
-
-        if (productFind) {
-            return res.status(200).send({
-                Producto: productFind.name,
-                Cantidad: productFind.amount,
-            });
-        } else {
-            return res.status(200).send({ message: "No se encotro el producto" });
-        }
-    });
-}
-
-function deleteProduct(req, res) {
-    var ProductId = req.params.idProduct;
-
-    if (req.userAdmin.rol == "ADMIN") {
-        Product.findByIdAndDelete(ProductId, (err, productDelete) => {
-            if (err) return res.status(200).send({ message: "Error en el servidor" });
-
-            if (productDelete) {
-                return res.status(200).send({ message: "Producto eliminado con exito" });
-            } else {
-                return res.status(200).send({ message: "No se pudo borrar el producto" });
-            }
-        });
-    } else {
-        return res.status(200).send({
-            message: "Usted no es administrador y no puede eliminar este producto",
-        });
-    }
-}
-
-function viewProductsForCategorys(req, res) {
-    var params = req.body;
-
-    Category.findOne({ name: params.category }).exec((err, categoryFind) => {
-        if (err) return res.status(200).send({ message: "Error en el servidor" });
-
-        if (categoryFind) {
-            Product.find({ category: categoryFind._id }).exec((err, productsCategoryFind) => {
-                if (err) return res.status(200).send({ message: "Error en el servidor" });
-
-                if (productsCategoryFind) {
-                    return res.status(200).send({ productsCategoryFind });
-                } else {
-                    return res.status(200).send({
-                        message: "No hay productos asociados en esta categoria",
-                    });
+    if (dataSesion.rolUsuario == "ADMIN") {
+        ModeloProductos.findOneAndDelete({_id : id}, (err, productoBorrado) => {
+            if(err){
+                res.status(500).send("Error al borrar producto");
+            }else{
+                if(productoBorrado){
+                    res.status(200).send(productoBorrado);
+                }else{
+                    res.status(404).send("Producto no encontrado");
                 }
-            });
-        } else {
-            return res.status(200).send({ message: "No se encontro la categoria" });
+            }
+        });
+    }else{
+        res.status(200).send({message: "No eres Administrador"});
+    }
+}
+
+function verProductosPorCategoria(req, res) {
+    var nombreCategoria = req.body.nombreCategoria;
+
+    ModeloCategorias.findOne({nombreCategoria: nombreCategoria}).exec((err, categoria) => {
+        if(err){
+            res.status(500).send("Error al encontrar producto");
+        }else{
+            if(categoria){
+                ModeloProductos.find({categoriaProducto : categoria._id}).exec((err, productos) => {
+                    if(err){
+                        res.status(500).send("Error al borrar producto");
+                    }else{
+                        if(productos){
+                            res.status(200).send(productos);
+                        }else{
+                            res.status(404).send("Producto no encontrado");
+                        }
+                    }
+                });
+            }else{
+                res.status(404).send("Productos no encontrado");
+            }
         }
     });
 }
 
-function viewDownProducts(req, res) {
-    Product.find({
-        amount: 0,
+function verProductosAgotados(req, res) {
+    ModeloProductos.find({
+        stockProducto: 0,
     }).exec((err, productos) => {
-        res.status(200).send(productos);
+        if(err){
+            res.status(400).send("Error al buscar los agotados");
+        }else{
+            if(productos){
+                res.status(200).send(productos);
+            }else{
+                res.status(404).send("No hay productos");
+            }
+        }
     });
 }
 
-function viewProductsMostSelled(req, res) {
-    Product.find({})
-        .sort({ sales: -1 })
+function verProductosMasVendidos(req, res) {
+    ModeloProductos.find({})
+        .sort({ ventasProducto: -1 })
         .limit(10)
         .exec((err, productos) => {
-            res.status(200).send(productos);
+            if(err){
+                res.status(400).send("Error al buscar los mas vendidos");
+            }else{
+                if(productos){
+                    res.status(200).send(productos);
+                }else{
+                    res.status(404).send("No hay productos");
+                }
+            }
         });
 }
 
 module.exports = {
-    saveProduct,
-    listProducts,
-    listProductsByName,
-    editProduct,
-    viewStocks,
-    deleteProduct,
-    viewProductsForCategorys,
-    viewDownProducts,
-    viewProductsMostSelled,
+    guardarProducto,
+    listarProductos,
+    listarProductosPorNombre,
+    editarProducto,
+    verExistencia,
+    borrarProducto,
+    verProductosPorCategoria,
+    verProductosAgotados,
+    verProductosMasVendidos,
 };

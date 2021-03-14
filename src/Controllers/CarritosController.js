@@ -1,8 +1,87 @@
 "user strict";
-var Cart = require("../Models/CarritosModel");
-var Product = require("../Models/ProductosModel");
+var ModeloCarritos = require("../Models/CarritosModel");
+var ModeloProductos = require("../Models/ProductosModel");
 
-function addProductToCart(req, res) {
+function agregarAlCarrito(req, res){
+    var dataSesion = req.usuario;
+
+    var nombreProducto = req.body.nombreProducto;
+    var cantidadProducto = req.body.cantidadProducto;
+
+    if(dataSesion.rolUsuario == "CLIENT"){
+        ModeloCarritos.findOne({usuarioCarrito : dataSesion.idUsuario}).exec((err, carrito) => {
+            if(err){
+                res.status(500).send(err);
+            }else{
+                if(carrito){
+                    ModeloProductos.findOne({nombreProducto : nombreProducto}, (err, producto) => {
+                        if(err){
+                            res.status(200).send({mensaje : "Algo falló ", err});
+                        }else{
+                            if(producto){
+                                ModeloCarritos.findByIdAndUpdate(
+                                    carrito._id,
+                                    {
+                                        $push: {
+                                            productosCarrito: {
+                                                idProducto: producto._id,
+                                                nombreProducto: producto.nombreProducto,
+                                                precioProducto: producto.precioProducto,
+                                                cantidadProducto: cantidadProducto
+                                            }
+                                        }
+                                    },
+                                    { new: true },
+                                    (err, carritoNew) => {
+                                        if(err){
+                                            res.status(500).send(err);
+                                        }else{
+                                            if(carrito){
+                                                var sumaTotal = 0;
+
+                                                carritoNew.productosCarrito.forEach(producto => {
+                                                    sumaTotal += producto.cantidadProducto * producto.precioProducto;
+                                                });
+
+                                                ModeloCarritos.findByIdAndUpdate(
+                                                    carrito._id,
+                                                    {totalCarrito : sumaTotal}, 
+                                                    {new : true},
+                                                    (err, carritoActualizado) => {
+                                                        if(err){
+                                                            res.status(500).send("Error en la consulta para actualizar total del carrito");
+                                                        }else{
+                                                            if(carritoActualizado){
+                                                                res.status(200).send(carritoActualizado);
+                                                            }else{
+                                                                res.status(404).send("No se actualizó");
+                                                            }
+                                                        }
+                                                    }
+                                                );
+                                                
+                                            }else{
+                                                res.status(404).send("No se encontró el carrito");
+                                            }
+                                        }
+                                    }
+                                );
+                            }else{
+                                res.status(404).send("No se encontraron productos");
+                            }
+                        }
+                    });
+                }else{
+                    res.status(404).send("No se encontró el carrito");
+                }
+            }
+        });
+    }else{
+        res.status(200).send("No eres cliente");
+    }
+}
+
+function agregarAlCarritos(req, res) {
     var idUser = req.userClient.sub;
     var params = req.body;
 
@@ -78,5 +157,5 @@ function addProductToCart(req, res) {
 }
 
 module.exports = {
-    addProductToCart,
+    agregarAlCarrito,
 };

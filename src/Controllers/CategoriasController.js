@@ -1,133 +1,152 @@
 "use strict";
 
-//Imports
-var Category = require("../Models/CategoriasModel");
-var bcrypt = require("bcrypt-nodejs");
-var Product = require("../Models/ProductosModel");
+var ModeloCategorias = require("../Models/CategoriasModel");
+var ModeloProductos = require("../Models/ProductosModel");
 
-function saveCategory(req, res) {
-    var categoryModel = new Category();
-    var params = req.body;
-    var userClient = req.userAdmin.user;
-
-    if (req.userAdmin.rol == "ADMIN") {
-        if (params.name) {
-            categoryModel.name = params.name;
-            Category.find({ name: categoryModel.name }).exec((err, categoryFound) => {
-                if (err) return res.status(500).send({ message: "Error en la peticion" });
-
-                if (categoryFound && categoryFound.length >= 1) {
-                    return res.status(500).send({
-                        message: "La categoria ya existe",
-                    });
-                } else {
-                    categoryModel.save((err, categorySaved) => {
-                        if (err)
-                            return res.status(500).send({
-                                message: "Error en la peticion de guardar categoria",
-                            });
-
-                        if (categorySaved) {
-                            res.status(500).send({
-                                categorySaved,
-                            });
-                        } else {
-                            return res.status(200).send({ message: "No se pudo guardar la categoria" });
-                        }
-                    });
-                }
-            });
-        } else {
-            return res.status(200).send({ message: "Ingrese todos los parametros" });
-        }
-    } else {
-        return res.status(200).send({ message: `${userClient} Usted no es administrador ` });
-    }
-}
-
-function listCategorys(req, res) {
-    Category.find().exec((err, categorys) => {
-        if (err) return res.status(200).send({ message: "Error en la peticion" });
-
-        if (!categorys) {
-            return res.status(200).send({ message: "Error en la consulta de Categorias" });
-        } else {
-            return res.status(200).send({ categorys });
+function verificarCategoria(condition, callback){
+    ModeloCategorias.findOne(condition).exec((err, categoria) => {
+        if(err){
+            callback(err, null);
+        }else{
+            callback(false, categoria);
         }
     });
 }
 
-function deleteCategory(req, res) {
-    var categoryId = req.params.id;
-    var idDefault = "";
+function buscarCategoria(condition, callback){
+    ModeloCategorias.find(condition).exec((err, categorias) => {
+        if(err){
+            callback(err, null);
+        }else{
+            callback(false, categorias);
+        }
+    });
+}
 
-    if (req.userAdmin.rol == "ADMIN") {
-        Category.findOne({ name: "Default Category" }).exec((err, defaultCategoryFind) => {
-            if (err) return res.status(200).send({ message: "Error en el servidor" });
+function listarCategorias(req, res){
+    var dataSesion = req.usuario;
 
-            if (defaultCategoryFind) {
-                idDefault = defaultCategoryFind._id;
+    buscarCategoria({}, (err, categorias) => {
+        if(err){
+            res.status(500).send("Error al buscar las categorias");
+        }else{
+            if(categorias){
+                res.status(200).send(categorias);
+            }else{
+                res.status(404).send("No se encontraron categorias");
+            }
+        }
+    });
+}
+
+function guardarCategoria(req, res) {
+    var dataSesion = req.usuario;
+    var nombre = req.body.nombreCategoria;
+
+    var newCategoria = new ModeloCategorias({
+        nombreCategoria : nombre
+    });
+
+    if(dataSesion.rolUsuario == "ADMIN"){
+        verificarCategoria({nombreCategoria : nombre}, (err, categoria) => {
+            if(err){
+                res.status(500).send("Error al verificar categoria");
+            }else{
+                if(categoria){
+                    res.status(404).send("Ya existe esta categoria");
+                }else{
+                    newCategoria.save((err, savedCategoria) => {
+                        if(err){
+                            res.status(500).send("Error al guardar categoria");
+                        }else{
+                            res.status(200).send({newCategoria : savedCategoria});
+                        }
+                    });
+                }
             }
         });
+    }else{
+        res.status(200).send("No eres administrador");
+    }
+}
 
-        Category.findById(categoryId, (err, categoryFind) => {
-            if (err) {
-                res.status(500).send({ message: "Error en el servidor" });
-            } else if (categoryFind) {
-                Product.updateMany({ category: categoryId }, { $set: { category: idDefault } }, { new: true }, (err, setDefault) => {
-                    if (err) {
-                        res.status(500).send({ message: "Error en el servidor" });
-                    } else if (setDefault) {
-                        Category.findByIdAndDelete(categoryId, (err, categoryDeleted) => {
-                            if (err) {
-                                res.status(500).send({ message: "Error en el servidor" });
-                            } else if (categoryDeleted) {
-                                res.send({
-                                    message: "Categoria eliminada correctamente",
-                                    categoryDeleted,
+function eliminarCategoria(condition, callback){
+    ModeloCategorias.findOneAndDelete(condition, (err, categoria) => {
+        if(err){
+            callback(err, null);
+        }else{
+            callback(false, categoria);
+        }
+    });
+}
+
+function borrarCategoria(req, res){
+    var dataSesion = req.usuario;
+    var id = req.params.id;
+
+    if(dataSesion.rolUsuario == "ADMIN"){
+        eliminarCategoria({_id: id}, (err, categoria) => {
+            if(err){
+                res.status(500).send("Error al eliminar la categoria");
+            }else{
+                if(categoria){
+
+                    verificarCategoria({nombreCategoria : "Default"}, (err, categoriaDefault) => {
+                        if(err){
+                            res.status(500).send({mensaje : "Error al buscar Default ", err});
+                        }else{
+                            if(categoria){
+                                ModeloProductos.updateMany({ categoriaProducto: categoria._id }, { categoriaProducto: categoriaDefault._id }, { new: true }, (err, newProducts) => {
+                                    if(err){
+                                        res.status(500).send({mensaje : "Error en la consulta al acualizar productos por la categoria eliminada", err});
+                                    }else{
+                                        if(newProducts){
+                                            res.status(200).send({mensaje: "Se actualizaron los productos", newProducts});
+                                        }else{
+                                            res.status(404).send("No habia productos con esa categoria");
+                                        }
+                                    }
                                 });
-                            } else {
-                                res.status(404).send({ message: "No se pudo borrar la categoria" });
+                            }else{
+                                res.status(404).send("No se encontró la categoria default");
                             }
-                        });
-                    } else {
-                        res.status(404).send({
-                            message: "No se pudo pasar a la categoria por defecto",
-                        });
-                    }
-                });
-            } else {
-                res.status(404).send({ message: "No se pudo encontrar la categoria" });
+                        }
+                    });
+                }else{
+                    res.status(404).send("No existe la categoria ingresada");
+                }
             }
         });
-    } else {
-        return res.status(200).send({
-            message: "Usted no administrador no puede eliminar categorias",
-        });
+    }else{
+        res.status(200).send("No eres administraddor");
     }
 }
 
-function editCategory(req, res) {
-    var categoryId = req.params.idCategory;
-    var params = req.body;
+function actualizarCategoria(req, res) {
+    var dataSesion = req.usuario;
+    var idCategoria = req.params.id;
+    var newData = req.body;
 
-    if (params.name) {
-        Category.findByIdAndUpdate(categoryId, params, { new: true }, (err, categoryUpdate) => {
-            if (err) return res.status(200).send({ message: "Error en el servidor" });
-
-            if (categoryUpdate) {
-                return res.status(200).send({ categoryUpdate });
-            } else {
-                return res.status(200).send({ message: "No se pudo editar" });
+    if(dataSesion.rolUsuario == "ADMIN"){    
+        ModeloCategorias.findOneAndUpdate({_id : idCategoria}, newData, {new: true}, (err, newCategoria) => {
+            if(err){
+                res.status(500).send({ mensaje : "Error a obtener categorias", newCategoria});
+            }else{
+                if(newCategoria){
+                    res.status(200).send(newCategoria);
+                }else{
+                    res.status(200).send("No se encontró la categoria para actualizar");
+                }
             }
         });
-    } else {
-        return res.status(200).send({ message: "Error con los parametros" });
+    }else{
+        res.status(200).send("No eres Administrador");
     }
 }
+
 module.exports = {
-    saveCategory,
-    listCategorys,
-    deleteCategory,
-    editCategory,
+    guardarCategoria,
+    listarCategorias,
+    borrarCategoria,
+    actualizarCategoria
 };

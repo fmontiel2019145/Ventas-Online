@@ -1,141 +1,101 @@
 "use strict";
 
-var Bill = require("../Models/FacturasModel");
-var Cart = require("../Models/CarritosModel");
-var Product = require("../Models/ProductosModel");
-var User = require("../Models/UsuariosModel");
+var FacturasModel = require("../Models/FacturasModel");
+var CarritosModel = require("../Models/CarritosModel");
+var ProductosModel = require("../Models/ProductosModel");
+var UsuariosModel = require("../Models/UsuariosModel");
 
-function createBill(req, res) {
-    var idUser = req.params.id;
-    var billModel = new Bill();
-    var userModel = new User();
-    var Bills = [];
+function crearFactura(req, res){
+    var dataSesion = req.usuario;
+    var idUsuario = req.params.id;
 
-    Cart.findOne({ user: idUser }).exec((err, cartFind) => {
-        if (err) return res.status(200).send({ message: "Error en el servidor 1" });
-
-        if (cartFind) {
-            if (cartFind.products.length == 0) {
-                return res.status(200).send({ message: "No hay productos agregados en el carrito" });
-            } else {
-                billModel.user = idUser;
-                billModel.date = new Date();
-                billModel.products = cartFind.products;
-                billModel.total = cartFind.total;
-
-                billModel.save((err, billSaved) => {
-                    if (err) return res.status(200).send({ message: "Error en el servidor 2" });
-
-                    if (billSaved) {
-                        cartFind.products.forEach((productoCarrito) => {
-                            Product.findOne({ _id: productoCarrito.product }).exec((err, dataProduct) => {
-                                if (err) {
-                                } else {
-                                    var newStock = parseInt(dataProduct.amount) - parseInt(productoCarrito.quantity);
-                                    var newSale = parseInt(productoCarrito.quantity) + parseInt(dataProduct.sales);
-
-                                    var newSchema = { amount: newStock, sales: newSale };
-
-                                    Product.findByIdAndUpdate(
-                                        productoCarrito.product,
-                                        newSchema,
-                                        {
-                                            new: true,
-                                            useFindAndModify: false,
-                                        },
-                                        (err, productoActualizado) => {
-                                            if (err) {
-                                                console.log(err);
-                                            } else {
-                                                if (productoActualizado) {
-                                                    console.log("Producto Actualizado");
-                                                } else {
-                                                    console.log("Error");
-                                                }
-                                            }
+    var modeloFacturas = new FacturasModel();
+    
+    if(dataSesion.rolUsuario == "ADMIN" || idUsuario == dataSesion.idUsuario){
+        CarritosModel.findOne({usuarioCarrito : idUsuario}).exec((err, carrito) => {
+            if(err){
+                res.status(500).send("Error en la consulta para obtener el carrito")
+            }else{
+                if(carrito){
+                    modeloFacturas.usuarioFactura = idUsuario;
+                    modeloFacturas.fechaFactura = new Date();
+                    modeloFacturas.productosFactura = carrito.productosCarrito;
+                    modeloFacturas.totalFactura = carrito.totalCarrito;
+                    
+                    CarritosModel.findOneAndUpdate({_id : carrito._id}, {productosCarrito : [], totalCarrito : 0}, {new : true}, (err, carritoActualizado) => {
+                        if(err){
+                            res.status(500).send("Error en la consulta para borrar datos del carrito");
+                        }else{
+                            if(carritoActualizado){
+                                modeloFacturas.save((err, facturaIngresada) => {
+                                    if(err){
+                                        res.status(500).send("Error en la consulta para borrar datos del carrito");
+                                    }else{
+                                        if(facturaIngresada){
+                                            res.status(200).send({carrito: carritoActualizado, factura : facturaIngresada});
+                                        }else{
+                                            res.status(404).send("No se pudo agregar la factura");
                                         }
-                                    );
-                                }
-                            });
-                        });
-                        User.findByIdAndUpdate(
-                            idUser,
-                            {
-                                $push: {
-                                    purchases: {
-                                        idBill: billSaved._id,
-                                        products: cartFind.products,
-                                        total: cartFind.total,
-                                    },
-                                },
-                            },
-                            { new: true },
-                            (err, purchasedSaved) => {
-                                if (err) {
-                                    console.log(idUser);
-                                    return res.status(200).send({ message: "Error en el servidor 3" });
-                                }
-                                if (purchasedSaved) {
-                                    Cart.findByIdAndUpdate(cartFind._id, { $set: { products: [], total: 0 } }, { new: true }, (err, cleanCart) => {
-                                        if (err) return res.status(200).send({ message: "Error en el servidor" });
-
-                                        if (cleanCart) {
-                                            return res.status(200).send({
-                                                message: "Factura creada con exito",
-                                                purchasedSaved,
-                                            });
-                                        } else {
-                                            return res.status(200).send({ message: "No se pudo limpiar el carrito" });
-                                        }
-                                    });
-                                } else {
-                                    return res.status(200).send({
-                                        message: "No se pudo guardar la compra en el usario",
-                                    });
-                                }
+                                    }
+                                });
+                            }else{
+                                res.status(404).send("No se pudo actualizar");
                             }
-                        );
-                    } else {
-                        return res.status(200).send({ message: "No se pudo guardar la factura" });
-                    }
-                });
+                        }
+                    });
+                }else{
+                    res.status(404).send({mensaje : "No existe carrito"});
+                }
             }
-        } else {
-            return res.status(200).send({ message: "No se encotro el usuario" });
+        });
+    }else{
+        res.status(200).send("No eres administrador o no es tu cuenta");
+    }
+}
+
+function listarFacturas(req, res) {
+    var dataSesion = req.usuario;
+
+    if(dataSesion.rolUsuario == "ADMIN"){
+        FacturasModel.find({}).exec((err, facturas) => {
+            if(err){
+                res.status(500).send(facturas);
+            }else{
+                if (facturas) {
+                    res.status(200).send(facturas);
+                }else{
+                    res.status(200).send("No hay facturas");
+                }
+            }
+        });
+    }else{
+        res.status(200).send("No eres administrador o no es tu cuenta");
+    }
+}
+
+function verProductosPorFactura(req, res) {
+    var dataSesion = req.usuario;
+    var idFactura = req.params.id;
+
+    FacturasModel.findById(idFactura).exec((err, factura) => {
+        if (err) {
+            res.status(500).send("Error en la consulta para obtener la factura");
+        }else{
+            if(dataSesion.rolUsuario == "ADMIN" || factura.usuarioFactura == dataSesion.idUsuario){
+                if (factura) {
+                    res.status(200).send(factura.productosFactura);
+                }else{
+                    res.status(404).send("No hay productos en esa factura");
+                }
+            }else{
+                res.status(200).send("No eres administrador o no es tu cuenta");
+            }
         }
     });
 }
 
-function listarBills(req, res) {
-    if (req.userAdmin.rol == "ADMIN") {
-        Bill.find({}).exec((err, data) => {
-            if (data) {
-                res.status(200).send(data);
-            }
-        });
-    }
-}
-
-function viewProductsByBill(req, res) {
-    var billId = req.params.id;
-
-    if (req.userAdmin.rol == "ADMIN") {
-        Bill.findById(billId).exec((err, data) => {
-            if (err) {
-                console.log(err);
-            }
-
-            if (data) {
-                res.status(200).send(data.products);
-            }else{
-                res.status(200).send("No hay productos en esa factura");
-            }
-        });
-    }
-}
-
 module.exports = {
-    createBill,
-    listarBills,
-    viewProductsByBill,
+    crearFactura,
+    listarFacturas,
+    verProductosPorFactura
 };
